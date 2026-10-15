@@ -155,9 +155,7 @@ Output:
 }
 ```
 
-## Rules
-
-#### Bounded correlation metadata profile
+### Bounded correlation metadata profile
 
 The collection routes `/api/v0/faults` and `/api/v0/alerts` accept the explicit
 `profile=msp-correlation-v1&state=0,1` query. This profile returns current faults
@@ -220,6 +218,8 @@ body completion, the contract, states, consistency, exact row count and
 collection. Do not fall back to a partial result or the ordinary details-rich
 endpoint. Correlation consumers must preserve timestamp relationships between
 active and recovered faults, including eligible older pairs.
+
+## Rules
 
 ### `get_alert_rule`
 
