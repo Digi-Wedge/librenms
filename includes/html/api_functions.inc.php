@@ -13,6 +13,7 @@
  */
 
 use App\Actions\Device\ValidateDeviceAndCreate;
+use App\Api\AlertCorrelationMetadata;
 use App\Facades\DeviceCache;
 use App\Facades\LibrenmsConfig;
 use App\Http\Resources\Device as DeviceResource;
@@ -77,6 +78,7 @@ use LibreNMS\Util\IPv4;
 use LibreNMS\Util\Mac;
 use LibreNMS\Util\Number;
 use LibreNMS\Util\Time;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 function api_success($result, $result_name, $message = null, $code = 200, $count = null, $extra = null): JsonResponse
 {
@@ -1551,8 +1553,12 @@ function add_edit_alert_template(Illuminate\Http\Request $request)
 /**
  * @throws \LibreNMS\Exceptions\ApiException
  */
-function list_alerts(Illuminate\Http\Request $request): JsonResponse
+function list_alerts(Illuminate\Http\Request $request): JsonResponse|StreamedResponse
 {
+    if ($request->query->has('profile')) {
+        return AlertCorrelationMetadata::respond($request);
+    }
+
     $id = $request->route('id');
 
     $sql = 'SELECT `D`.`hostname`, `A`.*, `R`.`severity`,`R`.`name`,`R`.`proc`,`R`.`notes` FROM `alert_faults` AS `A`, `devices` AS `D`, `alert_rules` AS `R` WHERE `D`.`device_id` = `A`.`device_id` AND `A`.`rule_id` = `R`.`id` ';

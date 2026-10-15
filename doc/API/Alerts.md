@@ -157,6 +157,70 @@ Output:
 
 ## Rules
 
+#### Bounded correlation metadata profile
+
+The collection routes `/api/v0/faults` and `/api/v0/alerts` accept the explicit
+`profile=msp-correlation-v1&state=0,1` query. This profile returns current faults
+in both states from one read-only, repeatable-read database transaction. It does
+not read alert-log history or filter timestamps relative to the current time.
+The ordinary response remains unchanged when `profile` is absent.
+
+```curl
+curl -H 'Authorization: Bearer YOURAPITOKENHERE' 'https://foo.example/api/v0/alerts?profile=msp-correlation-v1&state=0,1'
+```
+
+The profile accepts only those two query parameters, with those exact values,
+on a collection route. An unknown profile, additional filter or single-fault
+route returns HTTP 400 with code `CORRELATION_PROFILE_REQUEST`. It does not
+silently ignore pagination or filtering parameters.
+
+The success response has this shape:
+
+```json
+{
+  "status": "ok",
+  "contract": "msp-correlation-v1",
+  "states": [0, 1],
+  "consistency": "repeatable-read",
+  "alerts": [
+    {
+      "id": 1,
+      "device_id": 1,
+      "rule_id": 1,
+      "hostname": "localhost",
+      "state": 1,
+      "timestamp": "2014-12-11 14:40:02"
+    }
+  ],
+  "count": 1,
+  "complete": true
+}
+```
+
+Only the six alert fields shown are returned, in ascending fault-ID order.
+Timestamps retain their database representation. The query joins the same fault,
+device and rule records as the ordinary collection, but does not select or
+expand compressed details, rule procedures or notes. All three tables must use
+InnoDB so every batch sees the same snapshot.
+
+Database reads use batches of 256 rows. The whole response must fit within
+65,536 rows and 16 MiB of encoded JSON, including the envelope. A resource limit,
+invalid scalar or collection failure refuses the entire collection with HTTP
+503 and one of `CORRELATION_COLLECTION_LIMIT`,
+`CORRELATION_COLLECTION_INVALID` or `CORRELATION_COLLECTION_FAILED`.
+The fixed error envelope contains `status: "error"`, the contract name,
+`complete: false` and `code`; it never contains partial alerts or raw database
+errors. These limits bound each batch and the complete response; they do not
+promise unlimited historical scale.
+
+The server finishes the collection and commits its read-only transaction before
+sending success headers. Consumers must validate successful HTTP status, full
+body completion, the contract, states, consistency, exact row count and
+`complete: true` before acting on any record. A network interruption is a failed
+collection. Do not fall back to a partial result or the ordinary details-rich
+endpoint. Correlation consumers must preserve timestamp relationships between
+active and recovered faults, including eligible older pairs.
+
 ### `get_alert_rule`
 
 Get the alert rule details.
